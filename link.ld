@@ -6,7 +6,7 @@ SECTIONS {
 
 	.text ALIGN (0x1000) :
 	{
-		*(.multiboot)
+		/* *(.multiboot) */
 		*(.text)
 	}
 

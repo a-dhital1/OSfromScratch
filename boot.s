@@ -1,6 +1,7 @@
 ; boot.s
 global leader
 extern kmain
+extern sum_of_three
 
 MAGIC_NUMBER equ 0x1BADB002
 FLAGS        equ 0x00000003
@@ -16,15 +17,11 @@ section .text
 loader:
 	mov esp, kernel_stack + 4096
 
-	mov eax, 0
-	cpuid
-
-	mov [0xB8000], ebx
-	mov [0xB8008], edx
-	mov [0xB8010], ecx
+	push dword 3
+	push dword 2
+	push dword 1	
 	
-	
-	call kmain
+	call sum_of_three
 
 .loop:
 	jmp .loop
