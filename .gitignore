@@ -1,0 +1,20 @@
+# Build artifacts
+*.o
+*.elf
+*.iso
+
+# Kernel binary
+kernel.elf
+
+# ISO build artifacts
+iso/boot/kernel.elf
+iso/boot/grub/boot.catalog
+
+# Serial log
+serial.log
+
+# Temporary files
+*~
+
+# Old GRUB files (removed, now using Limine)
+iso/boot/grub/
