@@ -1,0 +1,4 @@
+# LLDB script for automatic debugging
+gdb-remote localhost:1234
+breakpoint set --address 0x10000c
+continue

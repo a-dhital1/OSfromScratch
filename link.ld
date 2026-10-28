@@ -1,30 +1,38 @@
-/* link.ld */
+
+OUTPUT_FORMAT(elf64-x86-64)
 ENTRY(loader)
 
-SECTIONS {
-	. = 0x00100000;
+PHDRS
+{
+	text   PT_LOAD FLAGS(5);
+	rodata PT_LOAD FLAGS(4);
+	data   PT_LOAD FLAGS(6);
+}
 
-	.text ALIGN (0x1000) :
+SECTIONS
+{
+	. = 0xffffffff80000000;
+
+	.text ALIGN(4K) :
 	{
-		/* *(.multiboot) */
-		*(.text)
-	}
+		*(.text .text.*)
+	} :text
 
-	.rodata ALIGN (0x1000) :
+	.rodata ALIGN(4K) :
 	{
-		*(.rodata*)
-	}
+		*(.rodata .rodata.*)
+		*(.eh_frame .eh_frame.*)
+	} :rodata
 
-	.data ALIGN (0x1000) :
+	.data ALIGN(4K) :
 	{
-		*(.data)
-	}
+		*(.data .data.*)
+	} :data
 
-	.bss ALIGN (0x1000):
+	.bss ALIGN(4K) :
 	{
 		*(COMMON)
-		*(.bss)
-	}
+		*(.bss .bss.*)
+	} :data
 }
-	 
-	
+
