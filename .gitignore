@@ -1,20 +1,44 @@
-# Build artifacts
+
+# Compiled kernel and object files
+/bin/
+/obj/
 *.o
-*.elf
+*.a
+*.d
+
+# Bootable disk images
 *.iso
+*.hdd
+*.img
+*.qcow2
 
-# Kernel binary
-kernel.elf
+# Generated ISO directory
+/iso_root/
 
-# ISO build artifacts
-iso/boot/kernel.elf
-iso/boot/grub/boot.catalog
+# Downloaded Limine bootloader
+/limine-binary/
+/limine-binary.tar.gz
 
-# Serial log
-serial.log
+# Temporary compiler files
+*.out
+*.tmp
+*.log
+*.map
 
-# Temporary files
+# macOS files
+.DS_Store
+.AppleDouble
+._*
+
+# Vim temporary files
+*.swp
+*.swo
+*.swn
 *~
+*.un~
+Session.vim
 
-# Old GRUB files (removed, now using Limine)
-iso/boot/grub/
+# Debugging files
+core
+core.*
+.gdb_history
