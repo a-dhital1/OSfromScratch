@@ -1,201 +1,138 @@
-# Nuke built-in rules.
-.SUFFIXES:
-
-# Delete the target of a failed recipe.
+.DEFAULT_GOAL := all
 .DELETE_ON_ERROR:
 
-# This is the name that our final executable will have.
-override OUTPUT := myos
+# Kernel filename
+KERNEL := myos
 
-# User controllable toolchain and toolchain prefix.
-TOOLCHAIN :=
-TOOLCHAIN_PREFIX :=
-ifneq ($(TOOLCHAIN),)
-        ifeq ($(TOOLCHAIN_PREFIX),)
-                TOOLCHAIN_PREFIX := $(TOOLCHAIN)-
-        endif
-endif
-
-# User controllable C compiler command.
-ifneq ($(TOOLCHAIN_PREFIX),)
-        CC := $(TOOLCHAIN_PREFIX)gcc
-else
-        CC := cc
-endif
-
-# User controllable linker command.
+# Compiler tools for macOS cross-compiling
+TOOLCHAIN_PREFIX ?= x86_64-elf-
+CC := $(TOOLCHAIN_PREFIX)gcc
 LD := $(TOOLCHAIN_PREFIX)ld
 
-# Defaults ovverides for variables if using "llvm" as toolchain.
-ifeq ($(TOOLCHAIN),llvm)
-        CC := clang
-        LD := ld.lld
-endif
+# Other tools
+XORRISO := xorriso
+QEMU := qemu-system-x86_64
 
-# User controllable C flags.
-CFLAGS := -g -O2 -pipe
+# Directories
+BUILD_DIR := obj
+BIN_DIR := bin
+SYSROOT := sysroot
+ISO_ROOT := iso_root
+LIMINE_DIR := limine-binary
 
-# User controllable nasm flags.
-NASMFLAGS := -g
+# Locate C sources
+SOURCES := $(shell find kernel libk -name '*.c' -type f | LC_ALL=C sort)
 
-# User controllable linker flags. We set none by default.
-LDFLAGS := 
+# Convert source filenames into object filenames
+OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SOURCES))
 
-# Check if CC is Clang.
-override CC_IS_CLANG := $(shell ! $(CC) --version 2>/dev/null | grep -q '^Target: '; echo $$?)
+# Dependency files
+DEPS := $(OBJECTS:.o=.d)
 
-# If the C compiler is Clang, set the target as needed.
-ifeq ($(CC_IS_CLANG), 1)
-        override CC += \
-                -target x86_64-unknown-none-elf
-endif
+# Compiler flags
+CFLAGS := -std=gnu11 -O2 -g \
+          -Wall -Wextra \
+          -ffreestanding \
+          -fno-stack-protector \
+          -fno-stack-check \
+          -fno-lto \
+          -fno-PIC \
+          -fno-builtin \
+          -ffunction-sections \
+          -fdata-sections \
+          -m64 \
+          -march=x86-64 \
+          -mabi=sysv \
+          -mno-red-zone \
+          -mno-80387 \
+          -mno-mmx \
+          -mno-sse \
+          -mno-sse2 \
+          -mcmodel=kernel \
+          -MMD -MP
 
-# Internal C flags that should not be changed by the user.
-override CFLAGS += \
-        -Wall \
-        -Wextra \
-        -std=gnu11 \
-        -ffreestanding \
-        -fno-stack-protector \
-        -fno-stack-check \
-        -fno-lto \
-        -fno-PIC \
-        -ffunction-sections \
-        -fdata-sections \
-        -m64 \
-        -march=x86-64 \
-        -mabi=sysv \
-        -mno-80387 \
-        -mno-mmx \
-        -mno-sse \
-        -mno-sse2 \
-        -mno-red-zone \
-        -mcmodel=kernel
+# Header paths
+CPPFLAGS := -Ikernel \
+            -Ikernel/include \
+            -Ilibk/include
 
-# Internal C preprocessor flags that should not be changed by the user.
-override CPPFLAGS := \
-        -I src \
-        $(CPPFLAGS) \
-        -MMD \
-        -MP
+# Linker flags
+LDFLAGS := -m elf_x86_64 \
+           -nostdlib \
+           -static \
+           -z max-page-size=0x1000 \
+           -z noexecstack \
+           --gc-sections \
+           -no-pie \
+           -T linker.lds
 
-# Internal nasm flags that should not be changed by the user.
-override NASMFLAGS := \
-        -f elf64 \
-        $(patsubst -g, -g -F dwarf,$(NASMFLAGS)) \
-        -i src/ \
-        -Wall
+.PHONY: all clean install iso run
 
-# Internal linker flags that should not be changed by the user.
-override LDFLAGS += \
-        -m elf_x86_64 \
-        -nostdlib \
-        -static \
-        -z max-page-size=0x1000 \
-        -z noexecstack \
-        --gc-sections \
-        -T linker.lds
+# Build the kernel
+all: $(BIN_DIR)/$(KERNEL)
 
-# Check if the linker supports -no-pie and enable it if it does
-override LD_HAS_NO_PIE := $(shell ! $(LD) --help 2>/dev/null | grep -qE '(^|[[:space:]])--?no-pie([[:space:]]|$$)'; echo $$?)
+# Compile individual C files
+$(BUILD_DIR)/%.o: %.c GNUmakefile
+	mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-ifeq ($(LD_HAS_NO_PIE),1)
-        override LDFLAGS += \
-                -no-pie
-endif
+# Link all object files
+$(BIN_DIR)/$(KERNEL): $(OBJECTS) linker.lds GNUmakefile
+	mkdir -p $(BIN_DIR)
+	$(LD) $(LDFLAGS) $(OBJECTS) -o $@
 
-# Use "find" to glob all *c, *.S, and *asm files in the tree and obtain the
-# object and header dependency file names.
-override SRCFILES := $(shell find -L src -type f 2>/dev/null | LC_ALL=C sort)
-override CFILES := $(filter %.c,$(SRCFILES))
-override ASFILES := $(filter %.S,$(SRCFILES))
-override NASMFILES := $(filter %.asm,$(SRCFILES))
-override OBJ := $(addprefix obj/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o) $(NASMFILES:.asm=.asm.o))
-override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d) $(NASMFILES:.asm=.asm.d))
+# Install the kernel and headers into sysroot
+install: all
+	mkdir -p $(SYSROOT)/boot
+	mkdir -p $(SYSROOT)/usr/include/kernel
+	mkdir -p $(SYSROOT)/usr/include/libk
 
-# Default target. This must come first, before header dependencies.
-.PHONY: all
-all: bin/$(OUTPUT)
+	cp $(BIN_DIR)/$(KERNEL) $(SYSROOT)/boot/
+	cp kernel/include/kernel/*.h $(SYSROOT)/usr/include/kernel/
+	cp libk/include/*.h $(SYSROOT)/usr/include/libk/
 
-# Include header dependencies.
--include $(HEADER_DEPS)
+# Package the ISO
+iso: install
+	mkdir -p $(ISO_ROOT)/boot/limine
+	mkdir -p $(ISO_ROOT)/EFI/BOOT
 
-# Link rules for the final executable.
-bin/$(OUTPUT): GNUmakefile linker.lds $(OBJ)
-	mkdir -p "$(dir $@)"
-	$(LD) $(LDFLAGS) $(OBJ) -o $@
+	cp $(SYSROOT)/boot/$(KERNEL) $(ISO_ROOT)/boot/
 
-# Compilation rules for *.c files.
-obj/%.c.o: %.c GNUmakefile
-	mkdir -p "$(dir $@)"
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	cp limine.conf $(ISO_ROOT)/boot/limine/
+	cp $(LIMINE_DIR)/limine-bios.sys $(ISO_ROOT)/boot/limine/
+	cp $(LIMINE_DIR)/limine-bios-cd.bin $(ISO_ROOT)/boot/limine/
+	cp $(LIMINE_DIR)/limine-uefi-cd.bin $(ISO_ROOT)/boot/limine/
 
-# Compilation rules for *.S files.
-obj/%.S.o: %.S GNUmakefile
-	mkdir -p "$(dir $@)"
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	cp $(LIMINE_DIR)/BOOTX64.EFI $(ISO_ROOT)/EFI/BOOT/
+	cp $(LIMINE_DIR)/BOOTIA32.EFI $(ISO_ROOT)/EFI/BOOT/
 
-# Compilation rules for *.asm (nasm) files.
-obj/%.asm.o: %.asm GNUmakefile
-	mkdir -p "$(dir $@)"
-	nasm $(NASMFLAGS) -MD $(@:.o=.d) -MP $< -o $@
+	$(XORRISO) -as mkisofs \
+		-R -r -J \
+                -b boot/limine/limine-bios-cd.bin \
+                -no-emul-boot \
+                -boot-load-size 4 \
+                -boot-info-table \
+                -hfsplus \
+                -apm-block-size 2048 \
+                --efi-boot boot/limine/limine-uefi-cd.bin \
+                -efi-boot-part \
+                --efi-boot-image \
+                --protective-msdos-label \
+                $(ISO_ROOT) -o image.iso
 
-# Remove object files and the final executable.
-.PHONY: clean
-clean:
-	rm -rf bin obj
+	./$(LIMINE_DIR)/limine bios-install image.iso
 
-
-# Use the x86-64 cross compiler on macOS.
-# Only set the default if it wasn't supplied on the command line.
-TOOLCHAIN_PREFIX ?= x86_64-elf-
-
-# Set the tools explicitly for macOS.
-CC := x86_64-elf-gcc
-LD := x86_64-elf-ld
-
-# Build the bootable ISO.
-.PHONY: iso run
-
-iso: bin/myos
-	@echo "Preparing ISO directory..."
-	mkdir -p iso_root/boot/limine
-	mkdir -p iso_root/EFI/BOOT
-
-	cp bin/myos iso_root/boot/myos
-
-	cp limine.conf \
-	   limine-binary/limine-bios.sys \
-	   limine-binary/limine-bios-cd.bin \
-	   limine-binary/limine-uefi-cd.bin \
-	   iso_root/boot/limine/
-
-	cp limine-binary/BOOTX64.EFI \
-	   limine-binary/BOOTIA32.EFI \
-	   iso_root/EFI/BOOT/
-
-	@echo "Creating bootable ISO..."
-	xorriso -as mkisofs \
-	   -R -r -J \
-	   -b boot/limine/limine-bios-cd.bin \
-	   -no-emul-boot \
-	   -boot-load-size 4 \
-	   -boot-info-table \
-	   -hfsplus \
-	   -apm-block-size 2048 \
-	   --efi-boot boot/limine/limine-uefi-cd.bin \
-	   -efi-boot-part \
-	   --efi-boot-image \
-	   --protective-msdos-label \
-	   iso_root -o image.iso
-
-	./limine-binary/limine bios-install image.iso
-
-# Build and boot in QEMU.
+# Launch the OS
 run: iso
-	qemu-system-x86_64 \
-	   -m 256M \
-	   -cdrom image.iso \
-	   -boot d \
-	   -no-reboot
+	$(QEMU) -m 256M \
+                -cdrom image.iso \
+                -boot d \
+                -no-reboot
 
+# Clean generated build files
+clean:
+	rm -rf $(BUILD_DIR) $(BIN_DIR) \
+               $(SYSROOT) $(ISO_ROOT) image.iso
+
+# Include generated header dependencies
+-include $(DEPS)

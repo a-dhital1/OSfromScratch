@@ -1,44 +1,32 @@
-
-# Compiled kernel and object files
+# Generated build outputs
 /bin/
 /obj/
-*.o
-*.a
-*.d
+/sysroot/
+/iso_root/
 
-# Bootable disk images
+# Bootable images
 *.iso
 *.hdd
 *.img
 *.qcow2
 
-# Generated ISO directory
-/iso_root/
-
-# Downloaded Limine bootloader
+# Downloaded dependencies
 /limine-binary/
 /limine-binary.tar.gz
 
-# Temporary compiler files
-*.out
-*.tmp
-*.log
-*.map
-
-# macOS files
-.DS_Store
-.AppleDouble
-._*
-
-# Vim temporary files
+# Vim
 *.swp
 *.swo
 *.swn
 *~
 *.un~
-Session.vim
 
-# Debugging files
+# macOS
+.DS_Store
+
+# Debugging and temporary files
+*.log
+*.tmp
+*.map
 core
 core.*
-.gdb_history
