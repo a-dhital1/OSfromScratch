@@ -14,5 +14,7 @@ struct limine_framebuffer *boot_framebuffer(uint64_t index);
 
 const struct limine_memmap_response *boot_memory_map(void);
 
+const struct limine_hhdm_response *boot_hhdm(void);
+
 #endif
 

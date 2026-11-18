@@ -15,9 +15,15 @@ __attribute__((used, section(".limine_requests"))) static volatile struct limine
         .revision = 0
 };
 
-/* Print Physical Memory Map. */
+/* Request Physical Memory Map. */
 __attribute__((used, section(".limine_requests"))) static volatile struct limine_memmap_request memmap_request = {
 	.id = LIMINE_MEMMAP_REQUEST_ID,
+	.revision = 0,
+};
+
+/* Request Higher-Half Direct Mapping */
+__attribute__((used, section(".limine_requests"))) static volatile struct limine_hhdm_request hhdm_request = {
+	.id = LIMINE_HHDM_REQUEST_ID,
 	.revision = 0,
 };
 
@@ -53,4 +59,8 @@ struct limine_framebuffer *boot_framebuffer(uint64_t index) {
 
 const struct limine_memmap_response *boot_memory_map(void) {
 	return memmap_request.response;
+}
+
+const struct limine_hhdm_response *boot_hhdm(void) {
+	return hhdm_request.response;
 }

@@ -45,6 +45,10 @@ static void print_memory_map(void) {
 	serial_write("[MEM] Total usable RAM: ");
 	serial_write_hex(usable_bytes);
 	serial_write(" bytes \n");
+
+	serial_write("[MEM] Usable 4 KiB pages: ");
+	serial_write_hex(usable_bytes / 4096);
+	serial_write("\n");
 }
 
 void kmain(void) {
@@ -52,11 +56,21 @@ void kmain(void) {
         if (!boot_protocol_supported()) {
                 halt();
         }
-
+	
+	/* Memory Map */
 	if (serial_init()) {
 		serial_write("[RemSSOS] Entered kmain\n");
 		print_memory_map();
+		
+		const struct limine_hhdm_response *hhdm = boot_hhdm();
 
+		if (hhdm == NULL) {
+			serial_write("[MEM] Limine did not provide an HHDM response\n");
+		} else {
+			serial_write("[MEM] HHDM offset: ");
+			serial_write_hex(hhdm->offset);
+			serial_write("\n");
+		}
 	}
 
         /* Ensure a framebuffer is available. */
