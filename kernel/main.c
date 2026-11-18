@@ -1,9 +1,11 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #include <kernel/boot.h>
 #include <kernel/framebuffer.h>
+#include <kernel/serial.h>
 
 static void halt(void) {
         for (;;) {
@@ -11,11 +13,51 @@ static void halt(void) {
         }
 }
 
+static void print_memory_map(void) {
+	const struct limine_memmap_response *map = boot_memory_map();
+
+	if (map == NULL) {
+		serial_write("[MEM] Limine did not provide a memory map\n");
+		return;
+	}
+
+	uint64_t usable_bytes = 0;
+
+	serial_write("[MEM] Physical memory map\n");
+	for (uint64_t i = 0; i < map->entry_count; i++) {
+		const struct limine_memmap_entry *entry = map->entries[i];
+
+		serial_write(" base=");
+		serial_write_hex(entry->base);
+		serial_write(" length=");
+		serial_write_hex(entry->length);
+		serial_write(" type=");
+		serial_write_hex(entry->type);
+
+		if (entry->type == LIMINE_MEMMAP_USABLE) {
+			usable_bytes += entry->length;
+			serial_write(" (usable)");
+		}
+
+		serial_write("\n");
+	}
+
+	serial_write("[MEM] Total usable RAM: ");
+	serial_write_hex(usable_bytes);
+	serial_write(" bytes \n");
+}
+
 void kmain(void) {
         /* Verify the boot protocol. */
         if (!boot_protocol_supported()) {
                 halt();
         }
+
+	if (serial_init()) {
+		serial_write("[RemSSOS] Entered kmain\n");
+		print_memory_map();
+
+	}
 
         /* Ensure a framebuffer is available. */
         uint64_t count = boot_framebuffer_count();

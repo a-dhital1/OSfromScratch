@@ -15,6 +15,12 @@ __attribute__((used, section(".limine_requests"))) static volatile struct limine
         .revision = 0
 };
 
+/* Print Physical Memory Map. */
+__attribute__((used, section(".limine_requests"))) static volatile struct limine_memmap_request memmap_request = {
+	.id = LIMINE_MEMMAP_REQUEST_ID,
+	.revision = 0,
+};
+
 /* Start of Limine request area. */
 __attribute__((used, section(".limine_requests_start"))) static volatile uint64_t requests_start[] = LIMINE_REQUESTS_START_MARKER;
 
@@ -45,3 +51,6 @@ struct limine_framebuffer *boot_framebuffer(uint64_t index) {
         return framebuffer_request.response->framebuffers[index];
 }
 
+const struct limine_memmap_response *boot_memory_map(void) {
+	return memmap_request.response;
+}

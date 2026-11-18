@@ -10,9 +10,9 @@ bool boot_protocol_supported(void);
 
 uint64_t boot_framebuffer_count(void);
 
-struct limine_framebuffer *boot_framebuffer(
-        uint64_t index
-);
+struct limine_framebuffer *boot_framebuffer(uint64_t index);
+
+const struct limine_memmap_response *boot_memory_map(void);
 
 #endif
 

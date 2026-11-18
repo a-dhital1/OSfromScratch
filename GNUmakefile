@@ -127,6 +127,7 @@ run: iso
 	$(QEMU) -m 256M \
                 -cdrom image.iso \
                 -boot d \
+		-serial stdio \
                 -no-reboot
 
 # Clean generated build files
