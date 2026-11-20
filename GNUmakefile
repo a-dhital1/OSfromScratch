@@ -2,7 +2,7 @@
 .DELETE_ON_ERROR:
 
 # Kernel filename
-KERNEL := myos
+KERNEL := remssos
 
 # Compiler tools for macOS cross-compiling
 TOOLCHAIN_PREFIX ?= x86_64-elf-
